@@ -61,7 +61,8 @@ class UrlServiceTest {
 
         assertEquals(shortCode, result);
         verify(urlRepository, times(1)).save(any(Url.class));
-        verify(valueOperations, times(1)).set(anyString(), eq(longUrl), anyLong(), any());
+        // Redis is disabled, so no caching should occur
+        verify(valueOperations, never()).set(anyString(), anyString(), anyLong(), any());
     }
 
     @Test
@@ -116,12 +117,20 @@ class UrlServiceTest {
         String shortCode = "abc1234";
         String longUrl = "https://www.example.com";
 
-        when(valueOperations.get("short_url:" + shortCode)).thenReturn(longUrl);
+        // Since Redis is disabled (redisTemplate is null), this should go to database
+        Url url = new Url();
+        url.setShortCode(shortCode);
+        url.setLongUrl(longUrl);
+
+        when(valueOperations.get("short_url:" + shortCode)).thenReturn(null); // Redis disabled
+        when(urlRepository.findByShortCode(shortCode)).thenReturn(Optional.of(url));
 
         String result = urlService.getOriginalUrl(shortCode);
 
         assertEquals(longUrl, result);
-        verify(urlRepository, times(0)).findByShortCode(shortCode);
+        verify(urlRepository, times(1)).findByShortCode(shortCode);
+        // Redis is disabled, so no caching should occur
+        verify(valueOperations, never()).set(anyString(), anyString(), anyLong(), any());
     }
 
     @Test
@@ -139,7 +148,8 @@ class UrlServiceTest {
 
         assertEquals(longUrl, result);
         verify(urlRepository, times(1)).findByShortCode(shortCode);
-        verify(valueOperations, times(1)).set(anyString(), eq(longUrl), anyLong(), any());
+        // Redis is disabled, so no caching should occur
+        verify(valueOperations, never()).set(anyString(), anyString(), anyLong(), any());
     }
 
     @Test
@@ -162,4 +172,3 @@ class UrlServiceTest {
         assertEquals(expectedUrl, result);
     }
 }
-
